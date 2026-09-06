@@ -56,16 +56,16 @@ asio::awaitable<void> Gateway::handle_connection(tcp::socket socket)
 // WEBSOCKET
 asio::awaitable<void> Gateway::handle_websocket(beast::tcp_stream stream, http::request<http::string_body> req) {
     // websocket stream session
-    Session session{
-        websocket::stream<beast::tcp_stream>{std::move(stream)}
-    };
-    session.ws.set_option(websocket::stream_base::timeout::suggested(beast::role_type::server));
-    co_await session.ws.async_accept(req, asio::use_awaitable); // finish handshake
+    auto session = std::make_shared<Session>(websocket::stream<beast::tcp_stream>(std::move(stream)));
+    m_sessions.push_back(session);
+
+    session->ws.set_option(websocket::stream_base::timeout::suggested(beast::role_type::server));
+    co_await session->ws.async_accept(req, asio::use_awaitable); // finish handshake
 
     while (true)
     {
         beast::flat_buffer buffer;
-        co_await session.ws.async_read(buffer, asio::use_awaitable); // read to buffer
+        co_await session->ws.async_read(buffer, asio::use_awaitable); // read to buffer
 
         std::string msg = beast::buffers_to_string(buffer.data());
 
@@ -79,7 +79,7 @@ asio::awaitable<void> Gateway::handle_websocket(beast::tcp_stream stream, http::
 
             // dispatch
             if (auto it = Handlers::dispatchMap.find(op); it != Handlers::dispatchMap.end()) {
-                co_await it->second(session, payload, m_ctx);
+                co_await it->second(*session, payload, m_ctx);
             } else {
                 std::cerr << "unknown op: " << op << std::endl;
             }

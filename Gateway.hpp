@@ -12,6 +12,8 @@ private:
     asio::io_context& m_ioc;
     AppContext& m_ctx;
 
+    std::vector<std::weak_ptr<Session>> m_sessions;
+
     asio::awaitable<void> listen(uint16_t listenPort);
     asio::awaitable<void> handle_connection(tcp::socket socket);
     asio::awaitable<void> handle_websocket(beast::tcp_stream stream, http::request<http::string_body> req);

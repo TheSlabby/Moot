@@ -61,6 +61,27 @@ frame += bytes(b ^ mask[i % 4] for i, b in enumerate(payload))
 
 sock.sendall(frame)
 print(f"sent: {msg}")
-print("(check the server terminal for: got msg: ...)")
+
+# --- read one reply frame (server->client frames are NOT masked) ---
+def recv_exact(n):
+    buf = b""
+    while len(buf) < n:
+        chunk = sock.recv(n - len(buf))
+        if not chunk:
+            return None
+        buf += chunk
+    return buf
+
+hdr = recv_exact(2)
+if hdr:
+    length = hdr[1] & 0x7F
+    if length == 126:
+        length = struct.unpack(">H", recv_exact(2))[0]
+    elif length == 127:
+        length = struct.unpack(">Q", recv_exact(8))[0]
+    body = recv_exact(length) or b""
+    print(f"reply: {body.decode(errors='replace')}")
+else:
+    print("(no reply)")
 
 sock.close()
