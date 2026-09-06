@@ -21,6 +21,8 @@ find_package(Threads REQUIRED)
 add_executable(moot
     main.cpp
     Database.cpp
+    Gateway.cpp
+    Handlers.cpp
 )
 
 target_link_libraries(moot PRIVATE

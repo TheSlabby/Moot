@@ -2,8 +2,28 @@
 
 #include <cstdint>
 #include <string>
+#include <functional>
+#include <boost/asio.hpp>
+#include <boost/beast/core.hpp>
+#include <boost/beast/http.hpp>
+#include <boost/json.hpp>
+#include <boost/beast/websocket.hpp>
 
-// Plain data structs returned by the Database layer.
+
+
+namespace asio = boost::asio;
+namespace beast = boost::beast;
+namespace http = beast::http;
+namespace websocket = beast::websocket;
+namespace json = boost::json;
+using tcp = asio::ip::tcp;
+
+
+struct Session {
+    websocket::stream<beast::tcp_stream> ws;
+    int64_t userID {-1};
+};
+
 
 struct Message
 {
