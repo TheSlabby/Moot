@@ -44,4 +44,18 @@ asio::awaitable<void> handle_identify(Session& session, const json::value& v, Ap
     co_return;
 }
 
+asio::awaitable<void> handle_guild_create(Session& session, const json::value& v, AppContext& appContext)
+{
+    std::cout << "HANDLING GUILD CREATION" << std::endl;
+    auto name = std::string(v.at("name").as_string());
+    auto userID = session.userID;
+
+    auto guildID = co_await asio::co_spawn(appContext.dbPool, [userID, appContext, name]() -> asio::awaitable<int64_t> {
+        co_return appContext.db.createGuild(userID, name);
+    }, asio::use_awaitable);
+
+    co_return;
+}
+
+
 } // Handlers namespace
