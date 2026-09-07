@@ -41,6 +41,8 @@ export default function Login() {
           },
           d.session_id
         );
+        // keep the connection alive across drops (re-IDENTIFY on reconnect)
+        conn.enableReconnect(tok);
       } else {
         const d = (resp as ErrorFrame).d;
         setError(d?.message ?? "Login failed");

@@ -19,6 +19,8 @@ interface Waiter {
   timer: ReturnType<typeof setTimeout>;
 }
 
+const BACKOFF_MS = [1000, 2000, 5000]; // reconnect delays, capped at the last
+
 /**
  * Single WebSocket connection to the Moot gateway.
  * Mirrors the server side: send opcode-tagged JSON frames, dispatch inbound
@@ -26,22 +28,32 @@ interface Waiter {
  */
 class Connection {
   private ws?: WebSocket;
+  private url = "";
   private refCounter = 0;
   private handlers = new Map<string, Set<FrameHandler>>();
   private statusListeners = new Set<StatusListener>();
   private logListeners = new Set<LogListener>();
   private waiters: Waiter[] = [];
 
+  // heartbeat + reconnect state
+  private heartbeatTimer?: ReturnType<typeof setInterval>;
+  private token?: string;
+  private wantReconnect = false;
+  private reconnectAttempts = 0;
+  private reconnectTimer?: ReturnType<typeof setTimeout>;
+
   status: Status = "idle";
 
   /** Connect and resolve once the socket is open (rejects if it fails first). */
   connect(url: string): Promise<void> {
+    this.url = url;
     return new Promise((resolve, reject) => {
       this.setStatus("connecting");
       const ws = new WebSocket(url);
       this.ws = ws;
 
       ws.onopen = () => {
+        this.reconnectAttempts = 0;
         this.setStatus("open");
         resolve();
       };
@@ -52,12 +64,13 @@ class Connection {
       };
       ws.onclose = () => {
         this.setStatus("closed");
-        // fail any in-flight waiters
+        this.stopHeartbeat();
         for (const w of this.waiters) {
           clearTimeout(w.timer);
           w.reject(new Error("connection closed"));
         }
         this.waiters = [];
+        if (this.wantReconnect) this.scheduleReconnect();
       };
     });
   }
@@ -81,7 +94,7 @@ class Connection {
 
   /**
    * Send, then resolve with the next inbound frame whose op is in `expect`.
-   * Works even when the server doesn't echo `ref` yet (e.g. current READY).
+   * Works even when the server doesn't echo `ref` yet.
    */
   sendAndWait(
     op: string,
@@ -102,6 +115,49 @@ class Connection {
       this.waiters.push(waiter);
       this.send(op, d);
     });
+  }
+
+  // ---- heartbeat ----
+  startHeartbeat(intervalMs: number) {
+    this.stopHeartbeat();
+    if (!intervalMs || intervalMs < 1000) return;
+    this.heartbeatTimer = setInterval(() => this.send("HEARTBEAT"), intervalMs);
+  }
+  stopHeartbeat() {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = undefined;
+    }
+  }
+
+  // ---- reconnect ----
+  /** After a successful login, keep the connection alive across drops. */
+  enableReconnect(token: string) {
+    this.token = token;
+    this.wantReconnect = true;
+  }
+  /** Deliberate teardown (logout) — no reconnect. */
+  disconnect() {
+    this.wantReconnect = false;
+    this.stopHeartbeat();
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.ws?.close();
+  }
+
+  private scheduleReconnect() {
+    if (this.reconnectTimer) return; // already scheduled
+    const delay = BACKOFF_MS[Math.min(this.reconnectAttempts, BACKOFF_MS.length - 1)];
+    this.reconnectAttempts++;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = undefined;
+      this.connect(this.url)
+        .then(() => {
+          if (this.token) this.send("IDENTIFY", { token: this.token });
+        })
+        .catch(() => {
+          /* onclose will fire and schedule the next attempt */
+        });
+    }, delay);
   }
 
   /** Register a handler for a given op. Returns an unsubscribe fn. */
@@ -137,7 +193,6 @@ class Connection {
     }
     this.log({ dir: "in", frame, at: Date.now() });
 
-    // resolve any waiters matching this op
     if (this.waiters.length) {
       const remaining: Waiter[] = [];
       for (const w of this.waiters) {
@@ -151,7 +206,6 @@ class Connection {
       this.waiters = remaining;
     }
 
-    // dispatch to op handlers
     this.handlers.get(frame.op)?.forEach((h) => h(frame));
   }
 

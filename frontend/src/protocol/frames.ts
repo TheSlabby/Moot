@@ -10,9 +10,16 @@ export interface Envelope<Op extends string, D> {
 
 // ---- server -> client ----
 export type Hello = Envelope<"HELLO", { heartbeat_interval: number }>;
+export interface ReadyGuild {
+  id: string;
+  name: string;
+  owner_id: string;
+  channels: { id: string; name: string }[];
+}
 export type Ready = Envelope<"READY", {
   session_id: string;
   user: { id: string; username?: string };
+  guilds: ReadyGuild[];
 }>;
 export type HeartbeatAck = Envelope<"HEARTBEAT_ACK", Record<string, never>>;
 export type MessageAck = Envelope<"MESSAGE_ACK", { id: string; nonce?: string }>;

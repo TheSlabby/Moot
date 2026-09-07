@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Status } from "../ws/Connection";
+import { conn, type Status } from "../ws/Connection";
 
 export interface CurrentUser {
   id: string;
@@ -21,5 +21,8 @@ export const useSession = create<SessionState>((set) => ({
   sessionId: null,
   setStatus: (status) => set({ status }),
   login: (user, sessionId) => set({ user, sessionId }),
-  logout: () => set({ user: null, sessionId: null }),
+  logout: () => {
+    conn.disconnect(); // stop reconnect + close the socket
+    set({ user: null, sessionId: null });
+  },
 }));

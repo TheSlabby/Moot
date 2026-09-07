@@ -16,8 +16,15 @@ export default function ChannelSidebar() {
     [allChannels, selectedGuildId]
   );
 
+  const createChannel = useChat((s) => s.createChannel);
   const user = useSession((s) => s.user);
   const logout = useSession((s) => s.logout);
+
+  function onCreateChannel() {
+    if (!selectedGuildId) return;
+    const name = window.prompt("New channel name:");
+    if (name && name.trim()) createChannel(selectedGuildId, name.trim());
+  }
 
   return (
     <div className="flex w-60 flex-col bg-sidebar">
@@ -28,8 +35,15 @@ export default function ChannelSidebar() {
 
       {/* channel list */}
       <div className="flex-1 overflow-y-auto px-2 py-3">
-        <div className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-textFaint">
-          Text Channels
+        <div className="mb-1 flex items-center px-2 text-xs font-semibold uppercase tracking-wide text-textFaint">
+          <span>Text Channels</span>
+          <button
+            onClick={onCreateChannel}
+            title="Create a channel (CHANNEL_CREATE)"
+            className="ml-auto text-base leading-none text-textFaint transition hover:text-textNormal"
+          >
+            +
+          </button>
         </div>
         {channels.map((c) => {
           const active = c.id === selectedChannelId;
