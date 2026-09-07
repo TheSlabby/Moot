@@ -29,22 +29,49 @@ static std::string strOf(const json::value& d, const char* key)
 }
 
 // ---- IDENTIFY ------------------------------------------------------------
+// Resolve the token and, if valid, gather the user's guilds (each with its
+// channels) so READY carries the client's initial state.
+struct IdentifyResult {
+    std::optional<int64_t> userID;
+    json::array guilds;
+};
+
 asio::awaitable<void> handle_identify(Session& session, const json::value& frame, AppContext& ctx)
 {
     std::cout << "HANDLING IDENTIFY" << std::endl;
     auto token = strOf(frame.at("d"), "token");
 
-    auto userID = co_await asio::co_spawn(ctx.dbPool,
-        [token, ctx]() -> asio::awaitable<std::optional<int64_t>> {
-            co_return ctx.db.resolveToken(token);
+    auto res = co_await asio::co_spawn(ctx.dbPool,
+        [token, ctx]() -> asio::awaitable<IdentifyResult> {
+            IdentifyResult r;
+            r.userID = ctx.db.resolveToken(token);
+            if (r.userID) {
+                for (const auto& g : ctx.db.userGuilds(*r.userID)) {
+                    json::array chans;
+                    for (const auto& c : ctx.db.guildChannels(g.id)) {
+                        chans.push_back(json::object{
+                            {"id", std::to_string(c.id)},
+                            {"name", c.name},
+                        });
+                    }
+                    r.guilds.push_back(json::object{
+                        {"id", std::to_string(g.id)},
+                        {"name", g.name},
+                        {"owner_id", std::to_string(g.ownerID)},
+                        {"channels", std::move(chans)},
+                    });
+                }
+            }
+            co_return r;
         }, asio::use_awaitable);
 
-    if (userID) {
-        session.userID = *userID;
-        std::cout << "resolved token: " << token << " -> " << *userID << std::endl;
+    if (res.userID) {
+        session.userID = *res.userID;
+        std::cout << "resolved token: " << token << " -> " << *res.userID << std::endl;
         co_await reply(session, "READY", json::object{
-            {"session_id", "sess-" + std::to_string(*userID)},
-            {"user", json::object{{"id", std::to_string(*userID)}}},
+            {"session_id", "sess-" + std::to_string(*res.userID)},
+            {"user", json::object{{"id", std::to_string(*res.userID)}}},
+            {"guilds", std::move(res.guilds)},
         }, frame);
     } else {
         std::cerr << "couldn't resolve token: " << token << std::endl;

@@ -32,3 +32,17 @@ struct Message
     int64_t     authorID;
     std::string content;
 };
+
+struct Guild
+{
+    int64_t     id;
+    std::string name;
+    int64_t     ownerID;
+};
+
+struct Channel
+{
+    int64_t     id;
+    int64_t     guildID;
+    std::string name;
+};

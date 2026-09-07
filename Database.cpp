@@ -114,3 +114,41 @@ std::vector<Message> Database::messagesBefore(int64_t channelID, int64_t beforeI
     }
     return out;
 }
+
+std::vector<Guild> Database::userGuilds(int64_t userID)
+{
+    SQLite::Statement stmt(m_db,
+        "SELECT g.id, g.name, g.owner_id FROM guilds g "
+        "JOIN memberships m ON m.guild_id = g.id "
+        "WHERE m.user_id = ? ORDER BY g.id");
+    stmt.bind(1, userID);
+
+    std::vector<Guild> out;
+    while (stmt.executeStep())
+    {
+        Guild g;
+        g.id      = stmt.getColumn(0).getInt64();
+        g.name    = stmt.getColumn(1).getString();
+        g.ownerID = stmt.getColumn(2).getInt64();
+        out.push_back(std::move(g));
+    }
+    return out;
+}
+
+std::vector<Channel> Database::guildChannels(int64_t guildID)
+{
+    SQLite::Statement stmt(m_db,
+        "SELECT id, guild_id, name FROM channels WHERE guild_id = ? ORDER BY id");
+    stmt.bind(1, guildID);
+
+    std::vector<Channel> out;
+    while (stmt.executeStep())
+    {
+        Channel c;
+        c.id      = stmt.getColumn(0).getInt64();
+        c.guildID = stmt.getColumn(1).getInt64();
+        c.name    = stmt.getColumn(2).getString();
+        out.push_back(std::move(c));
+    }
+    return out;
+}

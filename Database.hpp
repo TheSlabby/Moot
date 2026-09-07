@@ -28,6 +28,8 @@ public:
 
     // reads
     std::vector<Message> messagesBefore(int64_t channelID, int64_t beforeID, int limit);
+    std::vector<Guild>   userGuilds(int64_t userID);      // guilds the user is a member of
+    std::vector<Channel> guildChannels(int64_t guildID);  // channels in a guild
 
 private:
     SQLite::Database m_db;
