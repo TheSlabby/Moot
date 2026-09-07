@@ -174,37 +174,40 @@ export default function MessageList() {
                   )}
                 </div>
 
-                {/* hover action bar */}
-                <div className="absolute -top-3 right-2 hidden items-center gap-0.5 rounded-md border border-divider bg-sidebar px-1 py-0.5 shadow-md group-hover:flex">
-                  <button
-                    title="Add reaction"
-                    onClick={() => setPickerFor(pickerFor === m.id ? null : m.id)}
-                    className="rounded px-1.5 py-0.5 text-textMuted hover:bg-hover hover:text-textNormal"
-                  >
-                    😊
-                  </button>
-                  {mine && !m.pending && (
-                    <>
-                      <button
-                        title="Edit"
-                        onClick={() => startEdit(m)}
-                        className="rounded px-1.5 py-0.5 text-textMuted hover:bg-hover hover:text-textNormal"
-                      >
-                        ✎
-                      </button>
-                      <button
-                        title="Delete"
-                        onClick={() => deleteMessage(m.id, m.channelId)}
-                        className="rounded px-1.5 py-0.5 text-textMuted hover:bg-hover hover:text-danger"
-                      >
-                        🗑
-                      </button>
-                    </>
-                  )}
-                </div>
+                {/* hover action bar — only for confirmed messages (pending ones
+                    still have a temporary nonce id the server can't act on) */}
+                {!m.pending && (
+                  <div className="absolute -top-3 right-2 hidden items-center gap-0.5 rounded-md border border-divider bg-sidebar px-1 py-0.5 shadow-md group-hover:flex">
+                    <button
+                      title="Add reaction"
+                      onClick={() => setPickerFor(pickerFor === m.id ? null : m.id)}
+                      className="rounded px-1.5 py-0.5 text-textMuted hover:bg-hover hover:text-textNormal"
+                    >
+                      😊
+                    </button>
+                    {mine && (
+                      <>
+                        <button
+                          title="Edit"
+                          onClick={() => startEdit(m)}
+                          className="rounded px-1.5 py-0.5 text-textMuted hover:bg-hover hover:text-textNormal"
+                        >
+                          ✎
+                        </button>
+                        <button
+                          title="Delete"
+                          onClick={() => deleteMessage(m.id, m.channelId)}
+                          className="rounded px-1.5 py-0.5 text-textMuted hover:bg-hover hover:text-danger"
+                        >
+                          🗑
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {/* emoji picker popover */}
-                {pickerFor === m.id && (
+                {pickerFor === m.id && !m.pending && (
                   <div className="absolute right-2 top-4 z-10 flex gap-1 rounded-md border border-divider bg-sidebar p-1.5 shadow-lg">
                     {QUICK_EMOJIS.map((e) => {
                       const mineEmoji = m.reactions.find((r) => r.emoji === e)?.me ?? false;
