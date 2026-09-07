@@ -1,4 +1,20 @@
 #include "Bus.hpp"
+#include <algorithm>
+
+std::vector<int64_t> Bus::onlineUserIds()
+{
+    std::vector<int64_t> ids;
+    for (const auto& s : m_sessions)
+    {
+        if (auto shared = s.lock())
+        {
+            if (shared->userID >= 0 &&
+                std::find(ids.begin(), ids.end(), shared->userID) == ids.end())
+                ids.push_back(shared->userID);
+        }
+    }
+    return ids;
+}
 
 asio::awaitable<void> Bus::publish(const std::string& msg)
 {
@@ -8,8 +24,12 @@ asio::awaitable<void> Bus::publish(const std::string& msg)
     {
         if (auto shared = s.lock())
         {
-            shared->ws.text(true);
-            co_await shared->ws.async_write(asio::buffer(msg), asio::use_awaitable);
+            try {
+                shared->ws.text(true);
+                co_await shared->ws.async_write(asio::buffer(msg), asio::use_awaitable);
+            } catch (const std::exception&) {
+                // dead/slow socket — skip it, don't stall the rest of the fanout
+            }
         }
     }
 }

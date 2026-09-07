@@ -3,7 +3,7 @@
 #include "Types.hpp"
 #include "AppContext.hpp"
 
-// Handlers now receive the whole frame (not just `d`) so they can echo `ref`.
+// Handlers receive the whole frame (not just `d`) so they can echo `ref`.
 using Handler = std::function<asio::awaitable<void>(Session&, const json::value& frame, AppContext&)>;
 
 namespace Handlers {
@@ -16,6 +16,12 @@ asio::awaitable<void> handle_guild_create(Session& session, const json::value& f
 asio::awaitable<void> handle_channel_create(Session& session, const json::value& frame, AppContext& ctx);
 asio::awaitable<void> handle_guild_join(Session& session, const json::value& frame, AppContext& ctx);
 asio::awaitable<void> handle_message_create(Session& session, const json::value& frame, AppContext& ctx);
+asio::awaitable<void> handle_message_edit(Session& session, const json::value& frame, AppContext& ctx);
+asio::awaitable<void> handle_message_delete(Session& session, const json::value& frame, AppContext& ctx);
+asio::awaitable<void> handle_reaction_add(Session& session, const json::value& frame, AppContext& ctx);
+asio::awaitable<void> handle_reaction_remove(Session& session, const json::value& frame, AppContext& ctx);
+asio::awaitable<void> handle_typing(Session& session, const json::value& frame, AppContext& ctx);
+asio::awaitable<void> handle_user_update(Session& session, const json::value& frame, AppContext& ctx);
 asio::awaitable<void> handle_history(Session& session, const json::value& frame, AppContext& ctx);
 asio::awaitable<void> handle_heartbeat(Session& session, const json::value& frame, AppContext& ctx);
 
@@ -26,6 +32,12 @@ inline std::unordered_map<std::string, Handler> dispatchMap = {
     {"CHANNEL_CREATE", handle_channel_create},
     {"GUILD_JOIN", handle_guild_join},
     {"MESSAGE_CREATE", handle_message_create},
+    {"MESSAGE_EDIT", handle_message_edit},
+    {"MESSAGE_DELETE", handle_message_delete},
+    {"REACTION_ADD", handle_reaction_add},
+    {"REACTION_REMOVE", handle_reaction_remove},
+    {"TYPING", handle_typing},
+    {"USER_UPDATE", handle_user_update},
     {"HISTORY", handle_history},
     {"HEARTBEAT", handle_heartbeat},
 };

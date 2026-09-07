@@ -12,6 +12,7 @@ interface SessionState {
   sessionId: string | null;
   setStatus: (s: Status) => void;
   login: (user: CurrentUser, sessionId: string) => void;
+  setUsername: (username: string) => void;
   logout: () => void;
 }
 
@@ -21,6 +22,7 @@ export const useSession = create<SessionState>((set) => ({
   sessionId: null,
   setStatus: (status) => set({ status }),
   login: (user, sessionId) => set({ user, sessionId }),
+  setUsername: (username) => set((s) => (s.user ? { user: { ...s.user, username } } : {})),
   logout: () => {
     conn.disconnect(); // stop reconnect + close the socket
     set({ user: null, sessionId: null });

@@ -70,29 +70,48 @@ asio::awaitable<void> Gateway::handle_websocket(beast::tcp_stream stream, http::
         co_await session->ws.async_write(asio::buffer(out), asio::use_awaitable);
     }
 
-    while (true)
-    {
-        beast::flat_buffer buffer;
-        co_await session->ws.async_read(buffer, asio::use_awaitable); // read to buffer
+    try {
+        while (true)
+        {
+            beast::flat_buffer buffer;
+            co_await session->ws.async_read(buffer, asio::use_awaitable); // read to buffer
 
-        std::string msg = beast::buffers_to_string(buffer.data());
+            std::string msg = beast::buffers_to_string(buffer.data());
 
-        // json parse
-        try {
-            json::value v = json::parse(msg);
-            std::string op{v.at("op").as_string()};
+            // per-frame guard: one bad frame must not drop the connection
+            try {
+                json::value v = json::parse(msg);
+                std::string op{v.at("op").as_string()};
 
-            std::cout << "got msg: " << msg << ", OPERATION: " << op << std::endl;
+                std::cout << "got msg: " << msg << ", OPERATION: " << op << std::endl;
 
-            // dispatch — handlers receive the whole frame (so they can echo ref)
-            if (auto it = Handlers::dispatchMap.find(op); it != Handlers::dispatchMap.end()) {
-                co_await it->second(*session, v, m_ctx);
-            } else {
-                std::cerr << "unknown op: " << op << std::endl;
+                // dispatch — handlers receive the whole frame (so they can echo ref)
+                if (auto it = Handlers::dispatchMap.find(op); it != Handlers::dispatchMap.end()) {
+                    co_await it->second(*session, v, m_ctx);
+                } else {
+                    std::cerr << "unknown op: " << op << std::endl;
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "bad msg: " << e.what() << std::endl;
             }
-        } catch (const std::exception& e) {
-            std::cerr << "bad msg: " << e.what() << std::endl;
         }
+    } catch (const std::exception&) {
+        // read failed -> the connection dropped; fall through to announce offline
+    }
+
+    // announce this user went offline (if they had identified)
+    if (session->userID >= 0) {
+        json::object pres{
+            {"op", "PRESENCE"},
+            {"d", json::object{
+                {"user_id", std::to_string(session->userID)},
+                {"username", session->username},
+                {"online", false},
+            }},
+        };
+        try {
+            co_await m_ctx.bus.publish(json::serialize(pres));
+        } catch (const std::exception&) {}
     }
 }
 

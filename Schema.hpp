@@ -32,8 +32,18 @@ inline constexpr const char* SCHEMA_SQL = R"sql(
         id         INTEGER PRIMARY KEY,
         channel_id INTEGER NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
         author_id  INTEGER NOT NULL REFERENCES users(id),
-        content    TEXT    NOT NULL
+        content    TEXT    NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT 0,  -- unix ms
+        edited_at  INTEGER                       -- unix ms, NULL if never edited
     );
 
     CREATE INDEX IF NOT EXISTS idx_messages_channel ON messages(channel_id, id);
+
+    -- one row per (message, user, emoji)
+    CREATE TABLE IF NOT EXISTS reactions (
+        message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+        user_id    INTEGER NOT NULL REFERENCES users(id)    ON DELETE CASCADE,
+        emoji      TEXT    NOT NULL,
+        PRIMARY KEY (message_id, user_id, emoji)
+    );
 )sql";

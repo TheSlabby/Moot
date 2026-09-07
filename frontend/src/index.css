@@ -22,3 +22,11 @@ body {
 *::-webkit-scrollbar { width: 8px; height: 8px; }
 *::-webkit-scrollbar-thumb { background: #1a1b1e; border-radius: 4px; }
 *::-webkit-scrollbar-track { background: transparent; }
+
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-modalIn { animation: modalIn 0.14s ease-out; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.animate-fadeIn { animation: fadeIn 0.12s ease-out; }

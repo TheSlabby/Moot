@@ -1,20 +1,12 @@
+import { useState } from "react";
 import { useChat } from "../store/chat";
+import CreateGuildModal from "./CreateGuildModal";
 
 export default function GuildRail() {
   const guilds = useChat((s) => s.guilds);
   const selected = useChat((s) => s.selectedGuildId);
   const selectGuild = useChat((s) => s.selectGuild);
-  const createGuild = useChat((s) => s.createGuild);
-  const joinGuild = useChat((s) => s.joinGuild);
-
-  function onCreate() {
-    const name = window.prompt("New guild name:");
-    if (name && name.trim()) createGuild(name.trim());
-  }
-  function onJoin() {
-    const id = window.prompt("Join guild by id:");
-    if (id && id.trim()) joinGuild(id.trim());
-  }
+  const [showCreate, setShowCreate] = useState(false);
 
   return (
     <div className="flex w-[72px] flex-col items-center gap-2 bg-rail py-3">
@@ -54,19 +46,14 @@ export default function GuildRail() {
       })}
 
       <button
-        onClick={onCreate}
+        onClick={() => setShowCreate(true)}
         className="grid h-12 w-12 place-items-center rounded-3xl bg-sidebar text-2xl text-online transition-all hover:rounded-2xl hover:bg-online hover:text-white"
-        title="Create a guild (GUILD_CREATE)"
+        title="Add or join a guild"
       >
         +
       </button>
-      <button
-        onClick={onJoin}
-        className="grid h-12 w-12 place-items-center rounded-3xl bg-sidebar text-xl text-online transition-all hover:rounded-2xl hover:bg-online hover:text-white"
-        title="Join a guild by id (GUILD_JOIN)"
-      >
-        ⤵
-      </button>
+
+      {showCreate && <CreateGuildModal onClose={() => setShowCreate(false)} />}
     </div>
   );
 }

@@ -150,8 +150,39 @@ Any failed request. Echoes the offending request's `ref` when there was one.
 - **Additive changes are safe** (new optional fields). Removing, renaming, or
   retyping a field is breaking and needs a protocol version bump.
 
-## Not in v1
+---
 
-Presence, typing indicators, message edit/delete, reactions, RESUME replay
-(the `seq`/`session_id` groundwork is here but replay isn't implemented yet),
-permissions/roles, DMs, voice.
+## v2 additions (branch `claude`)
+
+**READY** now also carries the client's initial state:
+```jsonc
+{"op":"READY","d":{
+  "session_id":"...", "user":{"id":"1","username":"walker"},
+  "online":["1","2"],                              // currently-connected user ids
+  "guilds":[{"id":"10","name":"Moot HQ","owner_id":"1",
+    "channels":[{"id":"20","name":"general"}],
+    "members":[{"id":"1","username":"walker"},{"id":"2","username":"alice"}]}]
+}}
+```
+
+**MESSAGE / HISTORY messages** now include `author_name`, `created_at` (unix ms),
+`edited_at` (0 = never), and `reactions:[{emoji,count,me}]`.
+
+New ops:
+
+- **TYPING** (c→s `{channel_id}`) → broadcast `TYPING {channel_id, user_id, username}`
+  (ephemeral, not persisted; client auto-expires after a few seconds).
+- **PRESENCE** (s→c event) `{user_id, username, online}` — broadcast when a user
+  identifies (online) or disconnects (offline).
+- **MESSAGE_EDIT** (c→s `{message_id, channel_id, content}`, author-only) →
+  broadcast **MESSAGE_UPDATE** `{id, channel_id, content, edited_at}`.
+- **MESSAGE_DELETE** (c→s `{message_id, channel_id}`, author-only) → broadcast
+  **MESSAGE_DELETE** `{id, channel_id}`.
+- **REACTION_ADD / REACTION_REMOVE** (c→s `{message_id, channel_id, emoji}`) →
+  broadcast **REACTION_UPDATE** `{message_id, channel_id, emoji, user_id, added}`
+  (only when a row actually changed).
+
+## Not yet
+
+RESUME replay (groundwork only), per-channel fanout (still broadcast-to-all +
+client filter), permissions/roles, DMs, voice, real auth (dev tokens).

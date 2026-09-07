@@ -1,10 +1,15 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useChat } from "../store/chat";
 import { useSession } from "../store/session";
+import { useSettings } from "../store/settings";
 import ConnectionBadge from "./ConnectionBadge";
-import { initials } from "./ui";
+import SettingsModal from "./SettingsModal";
+import CreateChannelModal from "./CreateChannelModal";
+import { colorFor, initials } from "./ui";
 
 export default function ChannelSidebar() {
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [channelModalOpen, setChannelModalOpen] = useState(false);
   const selectedGuildId = useChat((s) => s.selectedGuildId);
   const selectedChannelId = useChat((s) => s.selectedChannelId);
   const selectChannel = useChat((s) => s.selectChannel);
@@ -16,14 +21,12 @@ export default function ChannelSidebar() {
     [allChannels, selectedGuildId]
   );
 
-  const createChannel = useChat((s) => s.createChannel);
   const user = useSession((s) => s.user);
-  const logout = useSession((s) => s.logout);
+  const avatarColor = useSettings((s) => s.avatarColor);
+  const myColor = avatarColor ?? colorFor(user?.id ?? "0");
 
   function onCreateChannel() {
-    if (!selectedGuildId) return;
-    const name = window.prompt("New channel name:");
-    if (name && name.trim()) createChannel(selectedGuildId, name.trim());
+    if (selectedGuildId) setChannelModalOpen(true);
   }
 
   return (
@@ -68,7 +71,10 @@ export default function ChannelSidebar() {
       {/* user panel */}
       {user && (
         <div className="flex items-center gap-2 bg-rail px-2 py-2">
-          <span className="grid h-8 w-8 place-items-center rounded-full bg-blurple text-xs font-semibold text-white">
+          <span
+            className="grid h-8 w-8 place-items-center rounded-full text-xs font-semibold text-white"
+            style={{ backgroundColor: myColor }}
+          >
             {initials(user.username)}
           </span>
           <div className="flex-1 leading-tight">
@@ -76,13 +82,18 @@ export default function ChannelSidebar() {
             <ConnectionBadge />
           </div>
           <button
-            onClick={logout}
-            title="Log out"
-            className="rounded px-2 py-1 text-textMuted transition hover:bg-hover hover:text-danger"
+            onClick={() => setSettingsOpen(true)}
+            title="User settings"
+            className="rounded px-2 py-1 text-textMuted transition hover:bg-hover hover:text-textNormal"
           >
-            ⏻
+            ⚙
           </button>
         </div>
+      )}
+
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {channelModalOpen && (
+        <CreateChannelModal guildId={selectedGuildId} onClose={() => setChannelModalOpen(false)} />
       )}
     </div>
   );
