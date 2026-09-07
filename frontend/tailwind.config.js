@@ -4,22 +4,22 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Discord-ish dark palette
-        rail:     "#1e1f22", // guild rail / darkest
-        sidebar:  "#2b2d31", // channel sidebar
-        chat:     "#313338", // main chat area
-        chatInput:"#383a40", // composer / inputs
-        hover:    "#35373c",
-        active:   "#404249",
-        blurple:  "#5865f2",
-        blurpleHover: "#4752c4",
-        online:   "#23a55a",
-        idle:     "#f0b232",
-        danger:   "#da373c",
-        textNormal:"#dbdee1",
-        textMuted: "#949ba4",
-        textFaint: "#80848e",
-        divider:  "#3f4147",
+        // palette is theme-driven via CSS variables (see index.css)
+        rail:     "var(--rail)",
+        sidebar:  "var(--sidebar)",
+        chat:     "var(--chat)",
+        chatInput:"var(--chatInput)",
+        hover:    "var(--hover)",
+        active:   "var(--active)",
+        blurple:  "var(--accent)",
+        blurpleHover: "var(--accentHover)",
+        online:   "var(--online)",
+        idle:     "var(--idle)",
+        danger:   "var(--danger)",
+        textNormal:"var(--textNormal)",
+        textMuted: "var(--textMuted)",
+        textFaint: "var(--textFaint)",
+        divider:  "var(--divider)",
       },
       fontFamily: {
         sans: ['"gg sans"', "Inter", "system-ui", "Segoe UI", "Helvetica", "Arial", "sans-serif"],

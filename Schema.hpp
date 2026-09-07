@@ -34,7 +34,10 @@ inline constexpr const char* SCHEMA_SQL = R"sql(
         author_id  INTEGER NOT NULL REFERENCES users(id),
         content    TEXT    NOT NULL,
         created_at INTEGER NOT NULL DEFAULT 0,  -- unix ms
-        edited_at  INTEGER                       -- unix ms, NULL if never edited
+        edited_at  INTEGER,                      -- unix ms, NULL if never edited
+        reply_to   INTEGER,                      -- message id this replies to, NULL if none
+        pinned     INTEGER NOT NULL DEFAULT 0,
+        attachment TEXT                           -- image url, NULL if none
     );
 
     CREATE INDEX IF NOT EXISTS idx_messages_channel ON messages(channel_id, id);

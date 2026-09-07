@@ -7,6 +7,7 @@ export interface Guild {
   name: string;
   icon: string; // short label shown in the guild rail
   color: string;
+  iconUrl?: string; // uploaded guild icon image
 }
 
 export interface Channel {

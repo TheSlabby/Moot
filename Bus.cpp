@@ -1,19 +1,20 @@
 #include "Bus.hpp"
 #include <algorithm>
 
-std::vector<int64_t> Bus::onlineUserIds()
+std::vector<Bus::Online> Bus::onlineUsers()
 {
-    std::vector<int64_t> ids;
+    std::vector<Online> out;
     for (const auto& s : m_sessions)
     {
         if (auto shared = s.lock())
         {
-            if (shared->userID >= 0 &&
-                std::find(ids.begin(), ids.end(), shared->userID) == ids.end())
-                ids.push_back(shared->userID);
+            if (shared->userID < 0) continue;
+            if (std::any_of(out.begin(), out.end(), [&](const Online& o) { return o.id == shared->userID; }))
+                continue;
+            out.push_back(Online{shared->userID, shared->status, shared->statusText});
         }
     }
-    return ids;
+    return out;
 }
 
 asio::awaitable<void> Bus::publish(const std::string& msg)

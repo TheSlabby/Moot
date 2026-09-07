@@ -17,8 +17,9 @@ public:
     // Send a frame to every live session.
     asio::awaitable<void> publish(const std::string& msg);
 
-    // Distinct user ids of currently-connected, identified sessions.
-    std::vector<int64_t> onlineUserIds();
+    // Currently-connected, identified users with their status.
+    struct Online { int64_t id; std::string status; std::string statusText; };
+    std::vector<Online> onlineUsers();
 
 private:
     std::vector<std::weak_ptr<Session>> m_sessions;

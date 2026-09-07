@@ -2,6 +2,7 @@
 // Mirror of PROTOCOL.md. Kept as consts so typos are compile errors.
 
 export const ClientOp = {
+  Register: "REGISTER",
   Identify: "IDENTIFY",
   Heartbeat: "HEARTBEAT",
   GuildCreate: "GUILD_CREATE",
@@ -14,11 +15,18 @@ export const ClientOp = {
   ReactionRemove: "REACTION_REMOVE",
   Typing: "TYPING",
   UserUpdate: "USER_UPDATE",
+  SetAvatar: "SET_AVATAR",
+  SetGuildIcon: "SET_GUILD_ICON",
+  SetStatus: "SET_STATUS",
+  Pin: "PIN",
+  Unpin: "UNPIN",
+  GetPins: "GET_PINS",
   History: "HISTORY",
 } as const;
 
 export const ServerOp = {
   Hello: "HELLO",
+  Registered: "REGISTERED",
   Ready: "READY",
   HeartbeatAck: "HEARTBEAT_ACK",
   Message: "MESSAGE",
@@ -28,6 +36,9 @@ export const ServerOp = {
   Typing: "TYPING",
   Presence: "PRESENCE",
   UserUpdate: "USER_UPDATE",
+  GuildUpdate: "GUILD_UPDATE",
+  PinUpdate: "PIN_UPDATE",
+  Pins: "PINS",
   GuildCreate: "GUILD_CREATE",
   ChannelCreate: "CHANNEL_CREATE",
   GuildJoin: "GUILD_JOIN",

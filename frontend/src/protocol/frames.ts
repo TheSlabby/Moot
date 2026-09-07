@@ -19,23 +19,31 @@ export interface WireMessage {
   edited_at?: number; // 0 or missing = not edited
   reactions?: WireReaction[];
   nonce?: string;
+  reply_to?: string;
+  reply_author?: string;
+  reply_content?: string;
+  pinned?: boolean;
+  attachment?: string;
 }
-export interface WireMember { id: string; username: string }
+export interface WireMember { id: string; username: string; avatar?: string }
 
 // ---- server -> client ----
 export type Hello = Envelope<"HELLO", { heartbeat_interval: number }>;
+export type Registered = Envelope<"REGISTERED", { id: string; username: string; token: string }>;
 export interface ReadyGuild {
   id: string;
   name: string;
   owner_id: string;
+  icon?: string;
   channels: { id: string; name: string }[];
   members: WireMember[];
 }
+export interface OnlineUser { id: string; status: string; status_text: string }
 export type Ready = Envelope<"READY", {
   session_id: string;
-  user: { id: string; username?: string };
+  user: { id: string; username?: string; avatar?: string };
   guilds: ReadyGuild[];
-  online: string[];
+  online: OnlineUser[];
 }>;
 export type HeartbeatAck = Envelope<"HEARTBEAT_ACK", Record<string, never>>;
 export type MessageEvent = Envelope<"MESSAGE", WireMessage>;
@@ -47,10 +55,15 @@ export type ReactionUpdate = Envelope<"REACTION_UPDATE", {
   message_id: string; channel_id: string; emoji: string; user_id: string; added: boolean;
 }>;
 export type TypingEvent = Envelope<"TYPING", { channel_id: string; user_id: string; username: string }>;
-export type PresenceEvent = Envelope<"PRESENCE", { user_id: string; username: string; online: boolean }>;
-export type UserUpdateEvent = Envelope<"USER_UPDATE", { user_id: string; username: string }>;
+export type PresenceEvent = Envelope<"PRESENCE", {
+  user_id: string; username: string; online: boolean; status?: string; status_text?: string;
+}>;
+export type UserUpdateEvent = Envelope<"USER_UPDATE", { user_id: string; username: string; avatar?: string }>;
+export type GuildUpdateEvent = Envelope<"GUILD_UPDATE", { guild_id: string; icon: string }>;
+export type PinUpdate = Envelope<"PIN_UPDATE", { message_id: string; channel_id: string; pinned: boolean }>;
+export type Pins = Envelope<"PINS", { channel_id: string; messages: WireMessage[] }>;
 export type GuildCreated = Envelope<"GUILD_CREATE", {
-  id: string; name: string; owner_id: string;
+  id: string; name: string; owner_id: string; icon?: string;
   channels: { id: string; name: string }[];
   members: WireMember[];
 }>;
@@ -61,13 +74,13 @@ export type ErrorFrame = Envelope<"ERROR", { code: string; message: string }>;
 
 export type ServerFrame =
   | Hello | Ready | HeartbeatAck | MessageEvent | MessageUpdate | MessageDeleteEvent
-  | ReactionUpdate | TypingEvent | PresenceEvent | UserUpdateEvent
+  | ReactionUpdate | TypingEvent | PresenceEvent | UserUpdateEvent | GuildUpdateEvent | PinUpdate | Pins
   | GuildCreated | ChannelCreated | GuildJoined | HistoryResp | ErrorFrame;
 
 // ---- client -> server ----
 export type Identify = Envelope<"IDENTIFY", { token: string }>;
 export type Heartbeat = Envelope<"HEARTBEAT", Record<string, never>>;
-export type MessageCreate = Envelope<"MESSAGE_CREATE", { channel_id: string; content: string; nonce: string }>;
+export type MessageCreate = Envelope<"MESSAGE_CREATE", { channel_id: string; content: string; nonce: string; reply_to?: string; attachment?: string }>;
 export type MessageEdit = Envelope<"MESSAGE_EDIT", { message_id: string; channel_id: string; content: string }>;
 export type MessageDelete = Envelope<"MESSAGE_DELETE", { message_id: string; channel_id: string }>;
 export type ReactionAdd = Envelope<"REACTION_ADD", { message_id: string; channel_id: string; emoji: string }>;

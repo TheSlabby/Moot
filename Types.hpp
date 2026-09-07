@@ -23,12 +23,16 @@ struct Session {
     websocket::stream<beast::tcp_stream> ws;
     int64_t     userID {-1};
     std::string username;
+    std::string avatar;              // file url or empty
+    std::string status {"online"};   // online | idle | dnd
+    std::string statusText;          // custom status message
 };
 
 struct User
 {
     int64_t     id;
     std::string username;
+    std::string avatar;
 };
 
 struct Message
@@ -40,6 +44,11 @@ struct Message
     std::string authorName;
     int64_t     createdAt {0};
     int64_t     editedAt  {0};  // 0 = never edited
+    int64_t     replyTo   {0};  // 0 = not a reply
+    std::string replyAuthor;    // preview of the replied-to message
+    std::string replyContent;
+    bool        pinned {false};
+    std::string attachment;     // image url or empty
 };
 
 struct Guild
@@ -47,6 +56,7 @@ struct Guild
     int64_t     id;
     std::string name;
     int64_t     ownerID;
+    std::string icon;
 };
 
 struct Channel

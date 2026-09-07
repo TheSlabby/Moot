@@ -3,7 +3,9 @@ import { useChat, type Message } from "../store/chat";
 import { useSession } from "../store/session";
 import { useSettings } from "../store/settings";
 import Markdown from "./Markdown";
-import { colorFor, formatDayTime, formatDivider, formatTime, initials, QUICK_EMOJIS } from "./ui";
+import Avatar from "./Avatar";
+import Modal from "./Modal";
+import { colorFor, formatDayTime, formatDivider, formatTime, QUICK_EMOJIS } from "./ui";
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
 
@@ -14,8 +16,13 @@ export default function MessageList() {
   const toggleReaction = useChat((s) => s.toggleReaction);
   const editMessage = useChat((s) => s.editMessage);
   const deleteMessage = useChat((s) => s.deleteMessage);
+  const pinMessage = useChat((s) => s.pinMessage);
+  const setReplyingTo = useChat((s) => s.setReplyingTo);
   const loadMore = useChat((s) => s.loadMoreHistory);
+  const marker = useChat((s) => s.unreadMarker[s.selectedChannelId]);
+  const userAvatars = useChat((s) => s.userAvatars);
   const myId = useSession((s) => s.user?.id);
+  const myName = useSession((s) => s.user?.username);
   const avatarColor = useSettings((s) => s.avatarColor);
   const density = useSettings((s) => s.density);
   const colorOf = (id: string) => (id === myId && avatarColor ? avatarColor : colorFor(id));
@@ -31,6 +38,7 @@ export default function MessageList() {
   const [editing, setEditing] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [pickerFor, setPickerFor] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Message | null>(null);
   const lastLoadMore = useRef(0);
 
   // keep pinned to bottom when already near bottom
@@ -84,11 +92,20 @@ export default function MessageList() {
         {messages.map((m, i) => {
           const prev = messages[i - 1];
           const sameDay = prev && new Date(prev.ts).toDateString() === new Date(m.ts).toDateString();
-          const grouped = prev && sameDay && prev.authorId === m.authorId && m.ts - prev.ts < GROUP_WINDOW_MS && !editing;
+          const grouped = prev && sameDay && prev.authorId === m.authorId && m.ts - prev.ts < GROUP_WINDOW_MS && !editing && !m.replyTo;
           const mine = m.authorId === myId;
+          const mentioned = !!myName && m.content.toLowerCase().includes("@" + myName.toLowerCase());
+          const showNew = marker && m.id === marker;
 
           return (
             <div key={m.id}>
+              {showNew && (
+                <div className="my-2 flex items-center gap-2 px-2 text-[11px] font-semibold uppercase text-danger">
+                  <div className="h-px flex-1 bg-danger/40" />
+                  <span>New</span>
+                  <div className="h-px flex-1 bg-danger/40" />
+                </div>
+              )}
               {!sameDay && (
                 <div className="my-4 flex items-center gap-2 px-2 text-xs font-semibold text-textFaint">
                   <div className="h-px flex-1 bg-divider" />
@@ -100,6 +117,8 @@ export default function MessageList() {
               <div
                 className={
                   "group relative flex gap-3 rounded px-2 hover:bg-black/10 " +
+                  (Date.now() - m.ts < 1500 ? "animate-msgIn " : "") +
+                  (mentioned ? "border-l-2 border-blurple bg-blurple/10 " : "") +
                   (grouped
                     ? (density === "compact" ? "py-0" : "py-0.5")
                     : (density === "compact" ? "mt-1.5 py-0" : "mt-3 py-0.5")) +
@@ -111,19 +130,24 @@ export default function MessageList() {
                     {formatTime(m.ts)}
                   </div>
                 ) : (
-                  <span
-                    className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-semibold text-white"
-                    style={{ backgroundColor: colorOf(m.authorId) }}
-                  >
-                    {initials(m.authorName)}
-                  </span>
+                  <div className="mt-0.5">
+                    <Avatar url={userAvatars[m.authorId]} name={m.authorName} id={m.authorId} color={colorOf(m.authorId)} size={40} />
+                  </div>
                 )}
 
                 <div className="min-w-0 flex-1">
+                  {m.replyTo && (
+                    <div className="mb-0.5 flex items-center gap-1 text-xs text-textMuted">
+                      <span className="text-textFaint">↳</span>
+                      <span className="font-medium text-textNormal">{m.replyAuthor}</span>
+                      <span className="truncate opacity-80">{m.replyContent}</span>
+                    </div>
+                  )}
                   {!grouped && (
                     <div className="flex items-baseline gap-2">
                       <span className="font-medium text-textNormal">{m.authorName}</span>
                       <span className="text-xs text-textFaint">{formatDayTime(m.ts)}</span>
+                      {m.pinned && <span className="text-[10px] text-textFaint" title="Pinned">📌</span>}
                     </div>
                   )}
 
@@ -150,6 +174,13 @@ export default function MessageList() {
                       <Markdown text={m.content} />
                       {m.editedAt && <span className="ml-1 text-[10px] text-textFaint">(edited)</span>}
                     </div>
+                  )}
+
+                  {/* image attachment */}
+                  {m.attachment && (
+                    <a href={m.attachment} target="_blank" rel="noopener noreferrer" className="mt-1 block w-fit">
+                      <img src={m.attachment} alt="attachment" className="max-h-80 max-w-md rounded-lg border border-black/20" />
+                    </a>
                   )}
 
                   {/* reactions */}
@@ -185,6 +216,20 @@ export default function MessageList() {
                     >
                       😊
                     </button>
+                    <button
+                      title="Reply"
+                      onClick={() => setReplyingTo(m)}
+                      className="rounded px-1.5 py-0.5 text-textMuted hover:bg-hover hover:text-textNormal"
+                    >
+                      ↩
+                    </button>
+                    <button
+                      title={m.pinned ? "Unpin" : "Pin"}
+                      onClick={() => pinMessage(m.id, m.channelId, !m.pinned)}
+                      className="rounded px-1.5 py-0.5 text-textMuted hover:bg-hover hover:text-textNormal"
+                    >
+                      📌
+                    </button>
                     {mine && (
                       <>
                         <button
@@ -196,7 +241,7 @@ export default function MessageList() {
                         </button>
                         <button
                           title="Delete"
-                          onClick={() => deleteMessage(m.id, m.channelId)}
+                          onClick={() => setConfirmDelete(m)}
                           className="rounded px-1.5 py-0.5 text-textMuted hover:bg-hover hover:text-danger"
                         >
                           🗑
@@ -215,7 +260,7 @@ export default function MessageList() {
                         <button
                           key={e}
                           onClick={() => { toggleReaction(m.id, m.channelId, e, mineEmoji); setPickerFor(null); }}
-                          className="rounded p-1 text-lg hover:bg-hover"
+                          className="grid h-8 w-8 place-items-center rounded text-lg leading-none hover:bg-hover"
                         >
                           {e}
                         </button>
@@ -236,6 +281,26 @@ export default function MessageList() {
         >
           ↓ Jump to present
         </button>
+      )}
+
+      {confirmDelete && (
+        <Modal title="Delete Message" subtitle="Are you sure you want to delete this message?" onClose={() => setConfirmDelete(null)}>
+          <div className="px-6 pt-4">
+            <div className="rounded-md bg-rail p-3">
+              <div className="text-xs font-medium text-textNormal">{confirmDelete.authorName}</div>
+              <div className="text-sm text-textMuted"><Markdown text={confirmDelete.content} /></div>
+            </div>
+          </div>
+          <div className="mt-6 flex items-center justify-end gap-3 bg-rail/40 px-6 py-4">
+            <button onClick={() => setConfirmDelete(null)} className="text-sm text-textMuted hover:underline">Cancel</button>
+            <button
+              onClick={() => { deleteMessage(confirmDelete.id, confirmDelete.channelId); setConfirmDelete(null); }}
+              className="rounded-md bg-danger px-6 py-2 text-sm font-medium text-white transition hover:opacity-90"
+            >
+              Delete
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   );

@@ -2,25 +2,66 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---- theme tokens (swap the whole palette via [data-theme]) ---- */
+:root {
+  --rail: #1e1f22;
+  --sidebar: #2b2d31;
+  --chat: #313338;
+  --chatInput: #383a40;
+  --hover: #35373c;
+  --active: #404249;
+  --accent: #5865f2;
+  --accentHover: #4752c4;
+  --online: #23a55a;
+  --idle: #f0b232;
+  --danger: #da373c;
+  --textNormal: #dbdee1;
+  --textMuted: #949ba4;
+  --textFaint: #80848e;
+  --divider: #3f4147;
+  --scrollThumb: #1a1b1e;
+  --font: "gg sans", Inter, system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+/* Fantasy: warm parchment, gold, deep wood/burgundy, serif */
+:root[data-theme="fantasy"] {
+  --rail: #17110a;
+  --sidebar: #241a0f;
+  --chat: #2b2012;
+  --chatInput: #3a2b18;
+  --hover: #3a2b18;
+  --active: #4c3a1e;
+  --accent: #c9a227;
+  --accentHover: #e3bd3d;
+  --online: #7bb661;
+  --idle: #e0a52a;
+  --danger: #b5423a;
+  --textNormal: #f3e7cd;
+  --textMuted: #cbb68c;
+  --textFaint: #9c8862;
+  --divider: #4c3a1e;
+  --scrollThumb: #0f0a05;
+  --font: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+}
+
 html, body, #root {
   height: 100%;
   margin: 0;
 }
 
 body {
-  background-color: #313338;
-  color: #dbdee1;
-  font-family: "gg sans", Inter, system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
+  background-color: var(--chat);
+  color: var(--textNormal);
+  font-family: var(--font);
   -webkit-font-smoothing: antialiased;
 }
 
-/* Discord-style thin scrollbars */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #1a1b1e transparent;
+  scrollbar-color: var(--scrollThumb) transparent;
 }
 *::-webkit-scrollbar { width: 8px; height: 8px; }
-*::-webkit-scrollbar-thumb { background: #1a1b1e; border-radius: 4px; }
+*::-webkit-scrollbar-thumb { background: var(--scrollThumb); border-radius: 4px; }
 *::-webkit-scrollbar-track { background: transparent; }
 
 @keyframes modalIn {
@@ -30,3 +71,23 @@ body {
 .animate-modalIn { animation: modalIn 0.14s ease-out; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .animate-fadeIn { animation: fadeIn 0.12s ease-out; }
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.95) translateY(6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-popIn { animation: popIn 0.1s ease-out; transform-origin: bottom; }
+@keyframes dropIn {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-dropIn { animation: dropIn 0.12s ease-out; transform-origin: top; }
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-slideUp { animation: slideUp 0.12s ease-out; }
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-msgIn { animation: msgIn 0.18s ease-out; }

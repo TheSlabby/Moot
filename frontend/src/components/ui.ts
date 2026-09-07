@@ -33,3 +33,16 @@ export function formatDivider(ts: number): string {
 }
 
 export const QUICK_EMOJIS = ["👍", "😂", "❤️", "🎉", "🔥", "👀", "😮", "😢"];
+
+export function statusColor(status: string | undefined, online: boolean): string {
+  if (!online) return "#80848e";
+  if (status === "idle") return "#f0b232";
+  if (status === "dnd") return "#f23f43";
+  return "#23a55a"; // online
+}
+export function statusLabel(status: string | undefined, online: boolean): string {
+  if (!online) return "Offline";
+  if (status === "idle") return "Idle";
+  if (status === "dnd") return "Do Not Disturb";
+  return "Online";
+}

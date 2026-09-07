@@ -15,4 +15,5 @@ private:
     asio::awaitable<void> listen(uint16_t listenPort);
     asio::awaitable<void> handle_connection(tcp::socket socket);
     asio::awaitable<void> handle_websocket(beast::tcp_stream stream, http::request<http::string_body> req);
+    asio::awaitable<void> handle_http(beast::tcp_stream stream, http::request<http::string_body> req);
 };

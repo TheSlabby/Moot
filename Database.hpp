@@ -20,16 +20,25 @@ public:
 
     // profile
     void updateUsername(int64_t userID, const std::string& username);
+    void setAvatar(int64_t userID, const std::string& url);
+    void setGuildIcon(int64_t guildID, const std::string& url);
 
     // creates
     int64_t createUser(const std::string& username, const std::string& token);
     int64_t createGuild(int64_t ownerID, const std::string& name);
     int64_t createChannel(int64_t guildID, const std::string& name);
-    int64_t insertMessage(int64_t channelID, int64_t authorID, const std::string& content, int64_t createdAtMs);
+    int64_t insertMessage(int64_t channelID, int64_t authorID, const std::string& content, int64_t createdAtMs, int64_t replyTo, const std::string& attachment);
 
     // edit / delete (author-scoped; returns whether a row changed)
     bool editMessage(int64_t messageID, int64_t authorID, const std::string& content, int64_t editedAtMs);
     bool deleteMessage(int64_t messageID, int64_t authorID);
+
+    // pins (anyone in the guild may pin/unpin)
+    void setPinned(int64_t messageID, bool pinned);
+    std::vector<Message> pinnedMessages(int64_t channelID);
+
+    // one message with its author name (for reply previews)
+    std::optional<Message> getMessage(int64_t messageID);
 
     // reactions (return whether a row actually changed)
     bool addReaction(int64_t messageID, int64_t userID, const std::string& emoji);

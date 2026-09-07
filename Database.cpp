@@ -11,6 +11,14 @@ Database::Database(const std::string& file) :
 
     // Create tables if they don't exist yet.
     m_db.exec(SCHEMA_SQL);
+
+    // Migrations for existing DBs (ADD COLUMN throws if it already exists).
+    auto tryExec = [&](const char* sql) { try { m_db.exec(sql); } catch (const std::exception&) {} };
+    tryExec("ALTER TABLE messages ADD COLUMN reply_to INTEGER");
+    tryExec("ALTER TABLE messages ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0");
+    tryExec("ALTER TABLE users ADD COLUMN avatar TEXT");
+    tryExec("ALTER TABLE guilds ADD COLUMN icon TEXT");
+    tryExec("ALTER TABLE messages ADD COLUMN attachment TEXT");
 }
 
 // authentication
@@ -31,10 +39,10 @@ std::optional<int64_t> Database::resolveToken(const std::string& token)
 }
 std::optional<User> Database::resolveUser(const std::string& token)
 {
-    SQLite::Statement stmt(m_db, "SELECT id, username FROM users WHERE token = ?");
+    SQLite::Statement stmt(m_db, "SELECT id, username, COALESCE(avatar,'') FROM users WHERE token = ?");
     stmt.bind(1, token);
     if (stmt.executeStep())
-        return User{stmt.getColumn(0).getInt64(), stmt.getColumn(1).getString()};
+        return User{stmt.getColumn(0).getInt64(), stmt.getColumn(1).getString(), stmt.getColumn(2).getString()};
     return std::nullopt;
 }
 
@@ -44,6 +52,20 @@ void Database::updateUsername(int64_t userID, const std::string& username)
     SQLite::Statement stmt(m_db, "UPDATE users SET username = ? WHERE id = ?");
     stmt.bind(1, username);
     stmt.bind(2, userID);
+    stmt.exec();
+}
+void Database::setAvatar(int64_t userID, const std::string& url)
+{
+    SQLite::Statement stmt(m_db, "UPDATE users SET avatar = ? WHERE id = ?");
+    stmt.bind(1, url);
+    stmt.bind(2, userID);
+    stmt.exec();
+}
+void Database::setGuildIcon(int64_t guildID, const std::string& url)
+{
+    SQLite::Statement stmt(m_db, "UPDATE guilds SET icon = ? WHERE id = ?");
+    stmt.bind(1, url);
+    stmt.bind(2, guildID);
     stmt.exec();
 }
 
@@ -90,14 +112,16 @@ int64_t Database::createChannel(int64_t guildID, const std::string& name)
     return m_db.getLastInsertRowid();
 }
 
-int64_t Database::insertMessage(int64_t channelID, int64_t authorID, const std::string& content, int64_t createdAtMs)
+int64_t Database::insertMessage(int64_t channelID, int64_t authorID, const std::string& content, int64_t createdAtMs, int64_t replyTo, const std::string& attachment)
 {
     SQLite::Statement stmt(m_db,
-        "INSERT INTO messages(channel_id, author_id, content, created_at) VALUES (?, ?, ?, ?)");
+        "INSERT INTO messages(channel_id, author_id, content, created_at, reply_to, attachment) VALUES (?, ?, ?, ?, ?, ?)");
     stmt.bind(1, channelID);
     stmt.bind(2, authorID);
     stmt.bind(3, content);
     stmt.bind(4, createdAtMs);
+    if (replyTo > 0) stmt.bind(5, replyTo); else stmt.bind(5);
+    if (!attachment.empty()) stmt.bind(6, attachment); else stmt.bind(6);
     stmt.exec();
     return m_db.getLastInsertRowid();
 }
@@ -158,44 +182,85 @@ void Database::joinGuild(int64_t userID, int64_t guildID)
 
 // --- reads ---
 
+// full message column list (with reply preview + pinned), reused by several reads
+static const char* kMsgSelect =
+    "SELECT m.id, m.channel_id, m.author_id, m.content, u.username, "
+    "       m.created_at, COALESCE(m.edited_at,0), COALESCE(m.reply_to,0), "
+    "       COALESCE(pu.username,''), COALESCE(pm.content,''), COALESCE(m.pinned,0), "
+    "       COALESCE(m.attachment,'') "
+    "FROM messages m "
+    "JOIN users u ON u.id = m.author_id "
+    "LEFT JOIN messages pm ON pm.id = m.reply_to "
+    "LEFT JOIN users pu ON pu.id = pm.author_id ";
+
+static Message readMessage(SQLite::Statement& s)
+{
+    Message m;
+    m.id           = s.getColumn(0).getInt64();
+    m.channelID    = s.getColumn(1).getInt64();
+    m.authorID     = s.getColumn(2).getInt64();
+    m.content      = s.getColumn(3).getString();
+    m.authorName   = s.getColumn(4).getString();
+    m.createdAt    = s.getColumn(5).getInt64();
+    m.editedAt     = s.getColumn(6).getInt64();
+    m.replyTo      = s.getColumn(7).getInt64();
+    m.replyAuthor  = s.getColumn(8).getString();
+    m.replyContent = s.getColumn(9).getString();
+    m.pinned       = s.getColumn(10).getInt() != 0;
+    m.attachment   = s.getColumn(11).getString();
+    return m;
+}
+
 std::vector<Message> Database::messagesBefore(int64_t channelID, int64_t beforeID, int limit)
 {
     SQLite::Statement stmt(m_db,
-        "SELECT m.id, m.channel_id, m.author_id, m.content, u.username, "
-        "       m.created_at, COALESCE(m.edited_at, 0) "
-        "FROM messages m JOIN users u ON u.id = m.author_id "
-        "WHERE m.channel_id = ? AND m.id < ? ORDER BY m.id DESC LIMIT ?");
+        std::string(kMsgSelect) + "WHERE m.channel_id = ? AND m.id < ? ORDER BY m.id DESC LIMIT ?");
     stmt.bind(1, channelID);
     stmt.bind(2, beforeID);
     stmt.bind(3, limit);
 
     std::vector<Message> out;
-    while (stmt.executeStep())
-    {
-        Message m;
-        m.id         = stmt.getColumn(0).getInt64();
-        m.channelID  = stmt.getColumn(1).getInt64();
-        m.authorID   = stmt.getColumn(2).getInt64();
-        m.content    = stmt.getColumn(3).getString();
-        m.authorName = stmt.getColumn(4).getString();
-        m.createdAt  = stmt.getColumn(5).getInt64();
-        m.editedAt   = stmt.getColumn(6).getInt64();
-        out.push_back(std::move(m));
-    }
+    while (stmt.executeStep()) out.push_back(readMessage(stmt));
     return out;
+}
+
+std::vector<Message> Database::pinnedMessages(int64_t channelID)
+{
+    SQLite::Statement stmt(m_db,
+        std::string(kMsgSelect) + "WHERE m.channel_id = ? AND m.pinned = 1 ORDER BY m.id DESC");
+    stmt.bind(1, channelID);
+    std::vector<Message> out;
+    while (stmt.executeStep()) out.push_back(readMessage(stmt));
+    return out;
+}
+
+std::optional<Message> Database::getMessage(int64_t messageID)
+{
+    SQLite::Statement stmt(m_db, std::string(kMsgSelect) + "WHERE m.id = ?");
+    stmt.bind(1, messageID);
+    if (stmt.executeStep()) return readMessage(stmt);
+    return std::nullopt;
+}
+
+void Database::setPinned(int64_t messageID, bool pinned)
+{
+    SQLite::Statement stmt(m_db, "UPDATE messages SET pinned = ? WHERE id = ?");
+    stmt.bind(1, pinned ? 1 : 0);
+    stmt.bind(2, messageID);
+    stmt.exec();
 }
 
 std::vector<User> Database::guildMembers(int64_t guildID)
 {
     SQLite::Statement stmt(m_db,
-        "SELECT u.id, u.username FROM users u "
+        "SELECT u.id, u.username, COALESCE(u.avatar,'') FROM users u "
         "JOIN memberships m ON m.user_id = u.id "
         "WHERE m.guild_id = ? ORDER BY u.username");
     stmt.bind(1, guildID);
 
     std::vector<User> out;
     while (stmt.executeStep())
-        out.push_back(User{stmt.getColumn(0).getInt64(), stmt.getColumn(1).getString()});
+        out.push_back(User{stmt.getColumn(0).getInt64(), stmt.getColumn(1).getString(), stmt.getColumn(2).getString()});
     return out;
 }
 
@@ -225,7 +290,7 @@ std::vector<Database::ReactionRow> Database::reactionsForChannel(int64_t channel
 std::vector<Guild> Database::userGuilds(int64_t userID)
 {
     SQLite::Statement stmt(m_db,
-        "SELECT g.id, g.name, g.owner_id FROM guilds g "
+        "SELECT g.id, g.name, g.owner_id, COALESCE(g.icon,'') FROM guilds g "
         "JOIN memberships m ON m.guild_id = g.id "
         "WHERE m.user_id = ? ORDER BY g.id");
     stmt.bind(1, userID);
@@ -237,6 +302,7 @@ std::vector<Guild> Database::userGuilds(int64_t userID)
         g.id      = stmt.getColumn(0).getInt64();
         g.name    = stmt.getColumn(1).getString();
         g.ownerID = stmt.getColumn(2).getInt64();
+        g.icon    = stmt.getColumn(3).getString();
         out.push_back(std::move(g));
     }
     return out;
