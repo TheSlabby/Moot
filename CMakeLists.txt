@@ -23,6 +23,7 @@ add_executable(moot
     Database.cpp
     Gateway.cpp
     Handlers.cpp
+    Bus.cpp
 )
 
 target_link_libraries(moot PRIVATE

@@ -57,7 +57,7 @@ asio::awaitable<void> Gateway::handle_connection(tcp::socket socket)
 asio::awaitable<void> Gateway::handle_websocket(beast::tcp_stream stream, http::request<http::string_body> req) {
     // websocket stream session
     auto session = std::make_shared<Session>(websocket::stream<beast::tcp_stream>(std::move(stream)));
-    m_sessions.push_back(session);
+    m_ctx.bus.subscribe(session);
 
     session->ws.set_option(websocket::stream_base::timeout::suggested(beast::role_type::server));
     co_await session->ws.async_accept(req, asio::use_awaitable); // finish handshake
@@ -88,3 +88,4 @@ asio::awaitable<void> Gateway::handle_websocket(beast::tcp_stream stream, http::
         }
     }
 }
+
