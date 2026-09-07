@@ -62,6 +62,14 @@ asio::awaitable<void> Gateway::handle_websocket(beast::tcp_stream stream, http::
     session->ws.set_option(websocket::stream_base::timeout::suggested(beast::role_type::server));
     co_await session->ws.async_accept(req, asio::use_awaitable); // finish handshake
 
+    // send JSON as text frames, and greet the client with HELLO
+    session->ws.text(true);
+    {
+        json::object hello{{"op", "HELLO"}, {"d", json::object{{"heartbeat_interval", 30000}}}};
+        std::string out = json::serialize(hello);
+        co_await session->ws.async_write(asio::buffer(out), asio::use_awaitable);
+    }
+
     while (true)
     {
         beast::flat_buffer buffer;
@@ -73,13 +81,12 @@ asio::awaitable<void> Gateway::handle_websocket(beast::tcp_stream stream, http::
         try {
             json::value v = json::parse(msg);
             std::string op{v.at("op").as_string()};
-            const json::value& payload = v.at("d");
 
             std::cout << "got msg: " << msg << ", OPERATION: " << op << std::endl;
 
-            // dispatch
+            // dispatch — handlers receive the whole frame (so they can echo ref)
             if (auto it = Handlers::dispatchMap.find(op); it != Handlers::dispatchMap.end()) {
-                co_await it->second(*session, payload, m_ctx);
+                co_await it->second(*session, v, m_ctx);
             } else {
                 std::cerr << "unknown op: " << op << std::endl;
             }
